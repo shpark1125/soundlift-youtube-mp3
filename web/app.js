@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const form = $('url-form'), input = $('video-url'), message = $('message');
-let current = null, pollTimer = null;
+let current = null, pollTimer = null, activeRun = 0;
 
 function showError(text) {
   message.textContent = text;
@@ -8,6 +8,15 @@ function showError(text) {
 }
 function clearError() { message.classList.add('hidden'); message.textContent = ''; }
 function fmtTime(sec) { return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`; }
+function stopPolling() { clearTimeout(pollTimer); pollTimer = null; activeRun += 1; }
+function startDownload(id) {
+  const link = document.createElement('a');
+  link.href = `/api/jobs/${id}/download`;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
 async function request(path, data) {
   const response = await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
   const body = await response.json();
@@ -17,10 +26,14 @@ async function request(path, data) {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  stopPolling();
+  current = null;
   clearError();
   $('preview').classList.add('hidden');
   $('result').classList.add('hidden');
   $('progress-panel').classList.add('hidden');
+  $('convert-btn').classList.remove('hidden');
+  $('convert-btn').disabled = false;
   const button = $('inspect-btn');
   button.disabled = true;
   button.textContent = '확인 중…';
@@ -42,41 +55,56 @@ $('paste-btn').addEventListener('click', async () => {
 
 $('convert-btn').addEventListener('click', async () => {
   if (!current) return;
+  stopPolling();
+  const run = activeRun;
   clearError();
   $('result').classList.add('hidden');
   $('convert-btn').disabled = true;
+  $('convert-btn').classList.add('hidden');
+  $('progress-panel').classList.remove('hidden');
+  $('progress-label').textContent = '오디오 다운로드 중';
+  $('progress-num').textContent = '0%';
+  $('progress-fill').style.width = '0%';
   try {
     const {id} = await request('/api/jobs', {url: current.url});
-    $('progress-panel').classList.remove('hidden');
     const check = async () => {
+      if (run !== activeRun) return;
       try {
         const response = await fetch(`/api/jobs/${id}`, {cache:'no-store'});
         const job = await response.json();
+        if (run !== activeRun) return;
         if (!response.ok) throw new Error(job.error);
         $('progress-label').textContent = job.status === 'encoding' ? 'MP3 인코딩 중' : '오디오 다운로드 중';
         $('progress-num').textContent = `${job.progress}%`;
         $('progress-fill').style.width = `${job.progress}%`;
         if (job.status === 'ready') {
-          clearInterval(pollTimer);
+          $('progress-label').textContent = '브라우저 다운로드 시작 중';
+          startDownload(id);
           $('progress-panel').classList.add('hidden');
-          $('result-size').textContent = `${(job.size / 1024 / 1024).toFixed(1)} MB · 320 kbps MP3`;
-          $('download-link').href = `/api/jobs/${id}/download`;
+          $('result-size').textContent = `${(job.size / 1024 / 1024).toFixed(1)} MB · 320 kbps MP3 · 브라우저 다운로드 목록에서 확인하세요.`;
           $('result').classList.remove('hidden');
-          $('convert-btn').disabled = false;
         } else if (job.status === 'error') {
-          clearInterval(pollTimer);
           $('progress-panel').classList.add('hidden');
           $('convert-btn').disabled = false;
+          $('convert-btn').classList.remove('hidden');
           showError(job.error || '변환에 실패했습니다.');
+        } else {
+          pollTimer = setTimeout(check, 1200);
         }
       } catch (error) {
-        clearInterval(pollTimer);
+        if (run !== activeRun) return;
         $('progress-panel').classList.add('hidden');
         $('convert-btn').disabled = false;
+        $('convert-btn').classList.remove('hidden');
         showError(error.message);
       }
     };
     await check();
-    if ($('convert-btn').disabled) pollTimer = setInterval(check, 1200);
-  } catch (error) { $('convert-btn').disabled = false; showError(error.message); }
+  } catch (error) {
+    if (run !== activeRun) return;
+    $('progress-panel').classList.add('hidden');
+    $('convert-btn').disabled = false;
+    $('convert-btn').classList.remove('hidden');
+    showError(error.message);
+  }
 });
