@@ -7,16 +7,17 @@ if (-not (Test-Path $python)) {
     & $systemPython -m venv .venv
 }
 & $python -m pip install --disable-pip-version-check -r requirements.txt
-$siteUrl = 'http://127.0.0.1:8765'
+$siteUrl = 'http://localhost:3000'
+$healthUrl = 'http://127.0.0.1:3000'
 try {
-    Invoke-WebRequest -Uri $siteUrl -TimeoutSec 2 | Out-Null
+    Invoke-WebRequest -Uri $healthUrl -TimeoutSec 2 | Out-Null
 } catch {
     Start-Process -FilePath $python -ArgumentList 'server.py' -WorkingDirectory $PSScriptRoot -WindowStyle Hidden | Out-Null
     $ready = $false
     for ($attempt = 0; $attempt -lt 20; $attempt++) {
         Start-Sleep -Milliseconds 250
         try {
-            Invoke-WebRequest -Uri $siteUrl -TimeoutSec 2 | Out-Null
+            Invoke-WebRequest -Uri $healthUrl -TimeoutSec 2 | Out-Null
             $ready = $true
             break
         } catch { }

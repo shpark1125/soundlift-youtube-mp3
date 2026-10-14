@@ -217,6 +217,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
-    print("MP3 사이트: http://127.0.0.1:8765", flush=True)
+    server = ThreadingHTTPServer(("127.0.0.1", 3000), Handler)
+    print("MP3 사이트: http://localhost:3000", flush=True)
     server.serve_forever()
