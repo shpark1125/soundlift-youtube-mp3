@@ -69,6 +69,8 @@ def ydl_options(**extra):
 
 def friendly_error(exc: Exception) -> str:
     detail = str(exc)
+    if "Sign in to confirm you" in detail:
+        return "YouTube가 Vercel 서버의 요청을 차단했습니다. 이 영상은 온라인에서 변환할 수 없습니다. 로컬 버전을 이용해 주세요."
     if "HTTP Error 403" in detail:
         return "YouTube가 이 서버의 오디오 요청을 거부했습니다(403). 잠시 후 다시 시도해 주세요."
     return detail[-500:]
