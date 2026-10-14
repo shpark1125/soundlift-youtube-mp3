@@ -1,3 +1,6 @@
 .venv/
 downloads/
 __pycache__/
+
+.vercel
+.vercel-stage-path
